@@ -1827,6 +1827,15 @@ class BannerCfg(object):
             self.cache[k] = v
 
 
+
+class LocalLoginCfg:
+
+    def load(self, *args, **kwargs):
+        self.local_login_update(None, None, None)
+
+    def local_login_update(self, key, op, data):
+        run_cmd(['sudo', 'systemctl', 'restart', 'local-login'])
+
 class HostConfigDaemon:
     def __init__(self):
         self.state_db_conn = DBConnector(STATE_DB, 0)
@@ -1884,6 +1893,9 @@ class HostConfigDaemon:
         # Initialize BannerCfg
         self.bannermsgcfg = BannerCfg()
 
+        # Initialize localLoginCfg
+        self.localLoginCfg = LocalLoginCfg()
+
     def load(self, init_data):
         aaa = init_data['AAA']
         tacacs_global = init_data['TACPLUS']
@@ -1908,6 +1920,7 @@ class HostConfigDaemon:
         ntp_keys = init_data.get(swsscommon.CFG_NTP_KEY_TABLE_NAME)
         serial_console = init_data.get('SERIAL_CONSOLE', {})
         banner_messages = init_data.get(swsscommon.CFG_BANNER_MESSAGE_TABLE_NAME)
+        local_login_cfg = init_data.get(swsscommon.CFG_LOCAL_LOGIN_TABLE_NAME, {})
 
         self.aaacfg.load(aaa, tacacs_global, tacacs_server, radius_global, radius_server, ldap_global, ldap_server)
         self.iptables.load(lpbk_table)
@@ -1924,6 +1937,7 @@ class HostConfigDaemon:
         self.bannermsgcfg.load(banner_messages)
 
         self.pamLimitsCfg.update_config_file()
+        self.localLoginCfg.load(local_login_cfg)
 
         # Update AAA with the hostname
         self.aaacfg.hostname_update(self.devmetacfg.hostname)
@@ -2080,6 +2094,10 @@ class HostConfigDaemon:
         syslog.syslog(syslog.LOG_INFO, 'BANNER_MESSAGE table handler...')
         self.bannermsgcfg.banner_message(key, data)
 
+    def local_login_config_handler(self, key, op, data):
+        syslog.syslog(syslog.LOG_INFO, 'Local login table handler...')
+        self.localLoginCfg.local_login_update(key, op, data)
+
     def wait_till_system_init_done(self):
         # No need to print the output in the log file so using the "--quiet"
         # flag
@@ -2146,6 +2164,8 @@ class HostConfigDaemon:
                                  make_callback(self.ntp_srv_key_handler))
         self.config_db.subscribe(swsscommon.CFG_NTP_KEY_TABLE_NAME,
                                  make_callback(self.ntp_srv_key_handler))
+        self.config_db.subscribe(swsscommon.CFG_LOCAL_LOGIN_TABLE_NAME,
+                                 make_callback(self.local_login_config_handler))
 
         # Handle BANNER_MESSAGE changes
         self.config_db.subscribe(swsscommon.CFG_BANNER_MESSAGE_TABLE_NAME,
