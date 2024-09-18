@@ -312,3 +312,19 @@ class TestDnsHandler:
         data = {}
         dns_cfg.load(data)
         dns_cfg.dns_update.assert_called()
+
+class TestLocalLoginCfg:
+    def test_load(self):
+        local_login_cfg = hostcfgd.LocalLoginCfg()
+        local_login_cfg.local_login_update = mock.MagicMock()
+
+        data = {}
+        local_login_cfg.load(data)
+        local_login_cfg.local_login_update.assert_called()
+
+    @mock.patch('hostcfgd.run_cmd')
+    def test_local_login_update(self, mock_run_cmd):
+        local_login_cfg = hostcfgd.LocalLoginCfg()
+        local_login_cfg.local_login_update(None, None, None)
+
+        mock_run_cmd.assert_has_calls([call(['sudo', 'systemctl', 'restart', 'local-login'])])
